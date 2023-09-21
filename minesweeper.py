@@ -8,9 +8,11 @@ import random
 import platform
 import time
 from datetime import time, date, datetime
+import numpy as np 
 
 SIZE_X = 10
 SIZE_Y = 10
+NUM_OF_MINES = 10
 
 STATE_DEFAULT = 0
 STATE_CLICKED = 1
@@ -34,6 +36,7 @@ class Minesweeper:
             "wrong": PhotoImage(file = "images/tile_wrong.gif"),
             "numbers": []
         }
+
         for i in range(1, 9):
             self.images["numbers"].append(PhotoImage(file = "images/tile_"+str(i)+".gif"))
 
@@ -65,21 +68,28 @@ class Minesweeper:
         # create buttons
         self.tiles = dict({})
         self.mines = 0
+
+        mine_indexes = np.arange(SIZE_X * SIZE_Y)
+        np.random.shuffle(mine_indexes)
+        mine_indexes = mine_indexes[:NUM_OF_MINES]
+        mine_indexes = [(mine_index//SIZE_X, mine_index%SIZE_X) for mine_index in mine_indexes]
+        self.mines = NUM_OF_MINES
+
         for x in range(0, SIZE_X):
             for y in range(0, SIZE_Y):
                 if y == 0:
                     self.tiles[x] = {}
 
                 id = str(x) + "_" + str(y)
-                isMine = False
 
                 # tile image changeable for debug reasons:
                 gfx = self.images["plain"]
 
                 # currently random amount of mines
-                if random.uniform(0.0, 1.0) < 0.1:
+                if (x, y) in mine_indexes:
                     isMine = True
-                    self.mines += 1
+                else:
+                    isMine = False
 
                 tile = {
                     "id": id,
