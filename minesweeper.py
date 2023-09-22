@@ -10,6 +10,9 @@ import time
 from datetime import time, date, datetime
 import numpy as np 
 
+from solver import solve
+
+
 SIZE_X = 10
 SIZE_Y = 10
 NUM_OF_MINES = 10
@@ -17,6 +20,11 @@ NUM_OF_MINES = 10
 STATE_DEFAULT = 0
 STATE_CLICKED = 1
 STATE_FLAGGED = 2
+
+UNKNOWN = -2
+MINE = -1
+EMPTY = 0
+
 
 BTN_CLICK = "<Button-1>"
 BTN_FLAG = "<Button-2>" if platform.system() == 'Darwin' else "<Button-3>"
@@ -26,7 +34,7 @@ window = None
 class Minesweeper:
 
     def __init__(self, tk):
-
+        self.tmp_flag = False 
         # import images
         self.images = {
             "plain": PhotoImage(file = "images/tile_plain.gif"),
@@ -58,7 +66,10 @@ class Minesweeper:
         self.restart() # start game
         self.updateTimer() # init timer
 
+
     def setup(self):
+        self.tile_for_agent = np.zeros((SIZE_X, SIZE_Y)) + UNKNOWN
+
         # create flag and clicked tile variables
         self.flagCount = 0
         self.correctFlagCount = 0
@@ -117,9 +128,11 @@ class Minesweeper:
                     mc += 1 if n["isMine"] else 0
                 self.tiles[x][y]["mines"] = mc
 
+
     def restart(self):
         self.setup()
         self.refreshLabels()
+        self.solve_automatically()
 
     def refreshLabels(self):
         self.labels["flags"].config(text = "Flags: "+str(self.flagCount))
@@ -192,6 +205,7 @@ class Minesweeper:
             self.clearSurroundingTiles(tile["id"])
         else:
             tile["button"].config(image = self.images["numbers"][tile["mines"]-1])
+            self.tile_for_agent[tile['coords']['x']][tile['coords']['y']] = tile["mines"]
         # if not already set as clicked, change state and count
         if tile["state"] != STATE_CLICKED:
             tile["state"] = STATE_CLICKED
@@ -208,15 +222,16 @@ class Minesweeper:
             tile["button"].config(image = self.images["flag"])
             tile["state"] = STATE_FLAGGED
             tile["button"].unbind(BTN_CLICK)
+            self.tile_for_agent[tile['coords']['x'], tile['coords']['y']] = MINE
             # if a mine
             if tile["isMine"] == True:
                 self.correctFlagCount += 1
             self.flagCount += 1
             self.refreshLabels()
         # if flagged, unflag
-        elif tile["state"] == 2:
+        elif tile["state"] == STATE_FLAGGED:
             tile["button"].config(image = self.images["plain"])
-            tile["state"] = 0
+            tile["state"] = STATE_DEFAULT
             tile["button"].bind(BTN_CLICK, self.onClickWrapper(tile["coords"]["x"], tile["coords"]["y"]))
             # if a mine
             if tile["isMine"] == True:
@@ -232,7 +247,7 @@ class Minesweeper:
             parts = key.split("_")
             x = int(parts[0])
             y = int(parts[1])
-
+            # self.tile_for_agent[x, y] = EMPTY
             for tile in self.getNeighbors(x, y):
                 self.clearTile(tile, queue)
 
@@ -243,11 +258,36 @@ class Minesweeper:
         if tile["mines"] == 0:
             tile["button"].config(image = self.images["clicked"])
             queue.append(tile["id"])
+            self.tile_for_agent[tile['coords']['x'], tile['coords']['y']] = EMPTY
         else:
             tile["button"].config(image = self.images["numbers"][tile["mines"]-1])
+            self.tile_for_agent[tile['coords']['x'], tile['coords']['y']] = tile["mines"]
 
         tile["state"] = STATE_CLICKED
         self.clickedCount += 1
+
+
+    def solve_automatically(self):
+        # if self.tmp_flag:
+        #     return
+        to_clear, to_flag = solve(self.tile_for_agent)
+        if to_clear:
+            x, y = to_clear[0]
+            self.onClick(self.tiles[x][y])
+            print('clicked! {},{}'.format(x, y))
+        elif to_flag:
+            x, y = to_flag[0]
+            self.onRightClick(self.tiles[x][y])
+            print('flagged! {},{}'.format(x, y))
+        else:
+            x = np.random.randint(0, SIZE_X - 1)
+            y = np.random.randint(0, SIZE_Y - 1)
+            self.onClick(self.tiles[x][y])
+            print('random! {},{}'.format(x, y))
+        # self.tmp_flag = True 
+        # self.onClick(self.tiles[0][self.t])
+        self.frame.after(1000, self.solve_automatically)
+
 
 ### END OF CLASSES ###
 
