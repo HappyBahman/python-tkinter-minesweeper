@@ -1,7 +1,10 @@
 from __future__ import annotations
-from typing import List
-from exceptions import EdgeAlreadyExists, EdgeDoesNotExist
+from typing import List, Tuple, Dict
+from exceptions import EdgeAlreadyExists, EdgeDoesNotExists, VertexAlreadyExists
 from enum import Enum
+
+# TODO: instead of updating all the nodes at each iteration,
+# the updated nodes should be checked and only those should be propagated
 
 
 class Value(Enum):
@@ -56,12 +59,26 @@ class BeliefSet:
 
 class Node:
     def __init__(
-        self, id: int, value: int, neighbours: List[Node] = [], degree: int = 0
+        self,
+        id: int,
+        value: int,
+        neighbours: List[Node] = [],
+        degree: int = 0,
+        location: Tuple[int, int] = (-1, -1),
     ) -> None:
         self.id = id
         self.value = value
         self.neighbours = neighbours
         self.degree = degree
+        self.beliefs = BeliefSet()
+        self.location: Tuple[int, int] = location
+
+    """
+    for location, -1, -1 denotes the nodes that are not in
+    the original grid and therefore do not have a location
+    """
+
+    def reset_beliefs(self) -> None:
         self.beliefs = BeliefSet()
 
     def __eq__(self, other: Node) -> bool:
@@ -87,11 +104,11 @@ class Node:
 
     def remove_neighbour(self, neighbour_to_remove: Node) -> None:
         if not self.is_neighbours_with(neighbour_to_remove):
-            raise EdgeDoesNotExist
+            raise EdgeDoesNotExists
         self.neighbours.pop(self.find_neighbour_id_from_node(neighbour_to_remove))
         self.degree -= 1
         return
-    
+
     def get_known_neighbours(self) -> List[Node]:
         known_neighbours = []
         for neighbour in self.neighbours:
@@ -106,86 +123,125 @@ class Node:
                 unknown_neighbours.append(neighbour)
         return unknown_neighbours
 
+class Graph:
+    def __init__(self) -> None:
+        self.vertexes: List[Node] = []
+        self.id_factory = IDFactory()
+        self.location_hash: Dict[Tuple[int, int], Node] = {}
 
-    class Graph:
-        def __init__(self) -> None:
-            self.vertexes = []
-            self.id_factory = IDFactory()
+    def add_vertex(self, vertex: Node) -> None:
+        self.vertexes.append(vertex)
+        if vertex.location != (-1, -1):
+            if vertex.location in self.location_hash:
+                raise VertexAlreadyExists
+            else:
+                self.location_hash[vertex.location] = vertex
 
-        def add_vertex(self, vertex: Node) -> None:
-            self.vertexes.append(vertex)
+    def add_edge(self, vertex_1: Node, vertex_2: Node) -> None:
+        vertex_1.add_neighbour(vertex_2)
+        vertex_2.add_neighbour(vertex_1)
 
-        def add_edge(self, vertex_1: Node, vertex_2: Node) -> None:
-            vertex_1.add_neighbour(vertex_2)
-            vertex_2.add_neighbour(vertex_1)
+    def get_known_vtxs(self) -> List[Node]:
+        known_set = []
+        for vtx in self.vertexes:
+            if not vtx.value == Value.Unknown:
+                known_set.append[vtx]
+        return known_set
 
-        def get_known_vtxs(self) -> List[Node]:
-            known_set = []
-            for vtx in self.vertexes:
-                if not vtx.value == Value.Unknown:
-                    known_set.append[vtx]
-            return known_set
+    def get_unknown_vtxs(self) -> List[Node]:
+        known_set = []
+        for vtx in self.vertexes:
+            if vtx.value == Value.Unknown:
+                known_set.append[vtx]
+        return known_set
+    
+    def get_vtx_at(self, location:Tuple[int, int]) -> Node:
+        return self.location_hash[location]
 
-        def get_unknown_vtxs(self) -> List[Node]:
-            known_set = []
-            for vtx in self.vertexes:
-                if vtx.value == Value.Unknown:
-                    known_set.append[vtx]
-            return known_set
+    def propagate_from_known_to_unkonwn_vtxs(self) -> None:
+        known_vtxs = self.get_known_vtxs()
+        for vtx in known_vtxs:
+            vtx_neighbours = vtx.neighbours
+            for neighbour in vtx_neighbours:
+                if neighbour.value == Value.Unknown:
+                    neighbour.beliefs.add_observation(vtx)
 
-        def propagate_from_known_to_unkonwn_vtxs(self) -> None:
-            known_vtxs = self.get_known_vtxs()
-            for vtx in known_vtxs:
-                vtx_neighbours = vtx.neighbours
-                for neighbour in vtx_neighbours:
-                    if neighbour.value == Value.Unknown:
-                        neighbour.beliefs.add_observation(vtx)
+    def reset_node_tables(self) -> None:
+        for vtx in self.vertexes:
+            vtx.reset_beliefs()
 
-        def propagate_from_unknown_to_known_vtxs(self) -> None:
-            # although this method is similar to the propagate_from_known_to_unkonwn_vtxs
-            # right now, there might be more substantial differences in the future,
-            # Also they represented different phases of the algorithm,
-            # hence they are implemented in two different methods.
-            unknown_vtxs = self.get_unknown_vtxs()
-            for vtx in unknown_vtxs:
-                vtx_neighbours = vtx.neighbours
-                belief_set = vtx.beliefs
-                for neighbour in vtx_neighbours:
-                    if neighbour.value != Value.Unknown:
-                        for belief_subject in belief_set.get_belief_subjects():
-                            if belief_subject == neighbour:
-                                # do not propagate observation of a vertex to itself
-                                continue
-                            neighbour.beliefs.add_observation(observed_neighbour=belief_subject,
-                                                              reference=vtx)
-
-        def resolve_propagated_information(self) -> bool:
-            known_vtxs = self.get_known_vtxs()
-            for vtx in known_vtxs:
-                unknown_neighbours = vtx.get_unknown_neighbours()
-                belief_set = vtx.beliefs
-                belief_subjects = belief_set.get_belief_subjects
-                for belief_subject in belief_subjects:
-                    belief_about_subject = belief_set.aquire_about(belief_subject)
-                    if belief_about_subject.degree == belief_about_subject.observed:
-                        # all the unknown neighbours of the belief subject subside under the
-                        # set of unknown neighbours of current vtx, therefore, this vertex will
-                        # definitely observe all that the belief subject will observe.
-                        # TODO: check that the node beign added is not duplicate, e.g. does not 
-                        # contain exactly the same info as the current node, 
-                        # i.e. does not have the same value, degree and neighbours as current node.
-                        unaffected_neighbours = []
-                        for neighbour in unknown_neighbours:
-                            if neighbour not in belief_about_subject.references:
-                                unaffected_neighbours.append(neighbour)
-                        new_node = Node(
-                            id=self.id_factory.get_new_id(),
-                            value=vtx.value - belief_about_subject.value,
+    def propagate_from_unknown_to_known_vtxs(self) -> None:
+        # although this method is similar to the propagate_from_known_to_unkonwn_vtxs
+        # right now, there might be more substantial differences in the future,
+        # Also they represented different phases of the algorithm,
+        # hence they are implemented in two different methods.
+        unknown_vtxs = self.get_unknown_vtxs()
+        for vtx in unknown_vtxs:
+            vtx_neighbours = vtx.neighbours
+            belief_set = vtx.beliefs
+            for neighbour in vtx_neighbours:
+                if neighbour.value != Value.Unknown:
+                    for belief_subject in belief_set.get_belief_subjects():
+                        if belief_subject == neighbour:
+                            # do not propagate observation of a vertex to itself
+                            continue
+                        neighbour.beliefs.add_observation(
+                            observed_neighbour=belief_subject, reference=vtx
                         )
-                        self.add_vertex(new_node)
-                        for un in unaffected_neighbours:
-                            self.add_edge(new_node, un)
 
+    def add_new_info_nodes(self) -> bool:
+        updated = False
+        known_vtxs = self.get_known_vtxs()
+        for vtx in known_vtxs:
+            unknown_neighbours = vtx.get_unknown_neighbours()
+            belief_set = vtx.beliefs
+            belief_subjects = belief_set.get_belief_subjects()
+            for belief_subject in belief_subjects:
+                belief_about_subject = belief_set.aquire_about(belief_subject)
+                if belief_about_subject.degree == belief_about_subject.observed:
+                    # all the unknown neighbours of the belief subject subside under the
+                    # set of unknown neighbours of current vtx, therefore, this vertex will
+                    # definitely observe all that the belief subject will observe.
+                    # TODO: check that the node beign added is not duplicate, e.g. does not
+                    # contain exactly the same info as the current node,
+                    # i.e. does not have the same value, degree and neighbours as current node.
+                    unaffected_neighbours = []
+                    for neighbour in unknown_neighbours:
+                        if neighbour not in belief_about_subject.references:
+                            unaffected_neighbours.append(neighbour)
+                    new_node = Node(
+                        id=self.id_factory.get_new_id(),
+                        value=vtx.value - belief_about_subject.value,
+                    )
+                    self.add_vertex(new_node)
+                    for un in unaffected_neighbours:
+                        self.add_edge(new_node, un)
+                    updated = True
+        return updated
 
+    def resolve(self) -> None:
+        known_vtxs = self.get_known_vtxs()
+        vtxs_to_flag = []
+        vtxs_to_clear = []
+        for vtx in known_vtxs:
+            if vtx.value == 0:
+                unknown_neighbours = vtx.get_unknown_neighbours()
+                for unknown_neibour in unknown_neighbours:
+                    # unknown_neibour.check_safe()
+                    vtxs_to_clear.append(unknown_neibour)
 
-        
+                    pass
+            elif vtx.value == vtx.degree:
+                for neighbour in vtx.get_unknown_neighbours():
+                    # neighbour.check_mine()
+                    pass
+
+    def update_graph(self) -> None:
+        self.reset_node_tables()
+        self.propagate_from_known_to_unkonwn_vtxs()
+        self.propagate_from_unknown_to_known_vtxs()
+        self.add_new_info_nodes()
+        self.resolve()
+        # IMPORTANT TODO: only create graphs from edges
+        # repeat the steps until there is no more change in the graphs
+        #  

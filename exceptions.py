@@ -1,6 +1,8 @@
 class EdgeAlreadyExists(Exception):
     pass 
 
-class EdgeDoesNotExist(Exception):
+class EdgeDoesNotExists(Exception):
     pass
 
+class VertexAlreadyExists(Exception):
+    pass
