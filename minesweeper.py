@@ -10,8 +10,10 @@ import time
 from datetime import time, date, datetime
 import numpy as np 
 
-from solver import solve
-
+# from solver import solve
+# from graph import Graph
+from graph_solver import GraphSolver
+from grid import MSGrid
 
 SIZE_X = 10
 SIZE_Y = 10
@@ -21,9 +23,9 @@ STATE_DEFAULT = 0
 STATE_CLICKED = 1
 STATE_FLAGGED = 2
 
-UNKNOWN = -2
-MINE = -1
-EMPTY = 0
+UNKNOWN = MSGrid.UKNOWN_CONSTANT
+MINE = MSGrid.MINE
+EMPTY = MSGrid.EMPTY
 
 
 BTN_CLICK = "<Button-1>"
@@ -270,7 +272,8 @@ class Minesweeper:
     def solve_automatically(self):
         # if self.tmp_flag:
         #     return
-        to_clear, to_flag = solve(self.tile_for_agent)
+        gs = GraphSolver(MSGrid(grid=self.tile_for_agent))
+        to_clear, to_flag = gs.solve()
         if to_clear:
             x, y = to_clear[0]
             self.onClick(self.tiles[x][y])

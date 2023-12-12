@@ -5,11 +5,23 @@ from itertools import product
 class MSGrid:
     """MineSweeper Grid as a class 
     """
-    def __init__(self, size_x, size_y) -> None:
-        self.unknown_constant = -1
-        self.size_x = size_x
-        self.size_y = size_y
-        self.grid = np.zeros((size_x, size_y)) + self.unknown_constant
+    UKNOWN_CONSTANT = -1
+    MINE = -2
+    EMPTY = 0
+    def __init__(self, grid=None, size_x=None, size_y=None) -> None:
+        assert grid is not None or (size_x is not None and size_y is not None), 'either an initial grid or the grid size should be given!'
+        # TODO makes more sense to just use class constant everywhere, 
+        # should be refactored later
+        self.unknown_constant = MSGrid.UKNOWN_CONSTANT
+        if grid is not None:
+            self.grid = grid
+            self.size_x = grid.shape[0]
+            self.size_y = grid.shape[1]
+
+        else:
+            self.size_x = size_x
+            self.size_y = size_y
+            self.grid = np.zeros((size_x, size_y)) + self.unknown_constant
 
     def get_known_cells(self):
         known_cells = []
@@ -18,9 +30,23 @@ class MSGrid:
                 if self.grid[col, row] != self.unknown_constant:
                     known_cells.append((col, row))
         return known_cells
+    
+    def cell_is_edge(self, cell_location: Tuple[int, int]):
+        is_known = self.grid[cell_location] != self.unknown_constant
+        x_offsets = [-1, 0, 1]
+        y_offsets = [-1, 0, 1]
+        neighbouring_offsets = product(x_offsets, y_offsets)
+        for neighbouring_offset in neighbouring_offsets:
+            if neighbouring_offset != (0, 0):
+                neighbour = (cell_location[0] + neighbouring_offset[0], cell_location[1] + neighbouring_offset[1])
+                neighbour_is_known = self.grid[neighbour] != self.unknown_constant
+                if is_known == neighbour_is_known:
+                    # if found a neighbour of opposite status (known vs. unkonwn)
+                    return True
+        return False
 
 
-    def get_cell_neighbours(self, cell_location, radius=1, radius_x=None, radius_y=None) -> List[Tuple[int, int]]:
+    def get_cell_neighbours(self, cell_location:Tuple[int, int], radius:int=1, radius_x:int=None, radius_y:int=None) -> List[Tuple[int, int]]:
         """_summary_
 
         Args:
@@ -35,9 +61,11 @@ class MSGrid:
         if radius_x is None:
             radius_x = radius
             radius_y = radius 
+        x_offsets = [r for r in range(radius_x + 1)] + [0] + [r for r in range(radius_x + 1)]
+        y_offsets = [r for r in range(radius_y + 1)] + [0] + [r for r in range(radius_y + 1)]
 
         list_of_neighbours = []
-        neighbouring_offsets = product(radius_x, radius_y)
+        neighbouring_offsets = product(x_offsets, y_offsets)
         for neighbouring_offset in neighbouring_offsets:
             if neighbouring_offset != (0, 0):
                 neighbour = (cell_location[0] + neighbouring_offset[0], cell_location[1] + neighbouring_offset[1])
@@ -59,7 +87,7 @@ class MSGrid:
     
 
     def get_connected_unknown_cells(self) -> List[List[Tuple[int, int]]]:
-        """in a minesweper game there might be a number of unconnected islands 
+        """in a minesweeper game there might be a number of unconnected islands 
         for which the solution is independent (if the margin of distance between them is larger than 1 and 
         until they remain unconnected). 
 
@@ -68,14 +96,24 @@ class MSGrid:
             list of tuples of form (x, y)
         """
         # This will run a dfs on the edges of the islands to find the cliques of unknown cells 
-        # A nont_trivial known cell is a cell that is known and adjacent to at least one unknown cell
-        # Similarly, an non_trivial unkonwn cell is one that is adjacent to at least one known cell
-        observed_known_cells = {}
-        observed_unknown_cells = {}
+        # A non_trivial known cell is a cell that is known and adjacent to at least one unknown cell
+        # Similarly, a non_trivial unknown cell is one that is adjacent to at least one known cell
+
+        def dfs(cell):
+            if cell not in visited:
+                visited.add(cell)
+                if self.grid[cell] == self.unknown_constant:
+                    clique.append(cell)
+                    for neighbour in self.get_cell_neighbours(cell):
+                        if neighbour not in visited:
+                            dfs(neighbour)
+
         cliques = []
+        visited = set()
         for x in range(self.size_x):
             for y in range(self.size_y):
-                if self.grid[x, y] != self.unknown_constant:
-                    pass 
-                # TODO recursivey look at below and right of the cell, if this is a non-trivial cell 
-                # and both below and right cells are also non_trivial, get the 
+                if (x, y) not in visited and self.grid[x, y] == self.unknown_constant:
+                    clique = []
+                    dfs((x, y))
+                    cliques.append(clique)
+        return cliques

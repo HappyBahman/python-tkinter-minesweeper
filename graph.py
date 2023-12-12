@@ -2,7 +2,7 @@ from __future__ import annotations
 from typing import List, Tuple, Dict
 from exceptions import EdgeAlreadyExists, EdgeDoesNotExists, VertexAlreadyExists
 from enum import Enum
-
+from itertools import product
 # TODO: instead of updating all the nodes at each iteration,
 # the updated nodes should be checked and only those should be propagated
 
@@ -83,7 +83,7 @@ class Node:
 
     def __eq__(self, other: Node) -> bool:
         assert isinstance(
-            object, Node
+            other, Node
         ), "can not compare Node to object type {}".format(type(other))
         return self.id == other.id
 
@@ -128,6 +128,7 @@ class Graph:
         self.vertexes: List[Node] = []
         self.id_factory = IDFactory()
         self.location_hash: Dict[Tuple[int, int], Node] = {}
+        self.iteration_threshold = 5
 
     def add_vertex(self, vertex: Node) -> None:
         self.vertexes.append(vertex)
@@ -155,6 +156,24 @@ class Graph:
                 known_set.append[vtx]
         return known_set
     
+    def location_is_in_graph(self, location: Tuple[int, int]) -> bool:
+        if location in self.location_hash:
+            return True
+        else:
+            return False
+
+    def loc_neighbours_in_graph(self, location: Tuple[int, int]) -> List[Node]:
+        found_neighbours = []
+        x_offsets = [-1, 0, 1]
+        y_offsets = [-1, 0, 1]
+        neighbouring_offsets = product(x_offsets, y_offsets)
+        for neighbouring_offset in neighbouring_offsets:
+            if neighbouring_offset != (0, 0):
+                neighbour = (location[0] + neighbouring_offset[0], location[1] + neighbouring_offset[1])
+                self.location_hash
+                # return True
+
+
     def get_vtx_at(self, location:Tuple[int, int]) -> Node:
         return self.location_hash[location]
 
@@ -219,29 +238,46 @@ class Graph:
                     updated = True
         return updated
 
-    def resolve(self) -> None:
-        known_vtxs = self.get_known_vtxs()
+    def resolve(self) -> Tuple[List[Node], List[Node]]:
+        """
+        This method will navigate the graph, and whenever it finds a known vertex for which the degree (number of known mines in neighbours)
+        equals the number of total neighbours, it flags them. 
+        And whenever the degree for a known node is zero, it marks all the unknown neighbours as safe to clear.
+        Returns:
+            Tuple[List[Node], List[Node]]: A tuple, first item is the list of vertices to flag and the second one is the list of vertices to clear.
+        """
         vtxs_to_flag = []
         vtxs_to_clear = []
+        known_vtxs = self.get_known_vtxs()
         for vtx in known_vtxs:
             if vtx.value == 0:
                 unknown_neighbours = vtx.get_unknown_neighbours()
-                for unknown_neibour in unknown_neighbours:
-                    # unknown_neibour.check_safe()
-                    vtxs_to_clear.append(unknown_neibour)
-
-                    pass
+                for unknown_neighbour in unknown_neighbours:
+                    vtxs_to_clear.append(unknown_neighbour)
             elif vtx.value == vtx.degree:
                 for neighbour in vtx.get_unknown_neighbours():
-                    # neighbour.check_mine()
-                    pass
+                    vtxs_to_flag.append(neighbour)
+        return vtxs_to_flag, vtxs_to_clear
 
-    def update_graph(self) -> None:
+
+    def update_graph(self) -> Tuple[List[Node], List[Node]]:
         self.reset_node_tables()
         self.propagate_from_known_to_unkonwn_vtxs()
         self.propagate_from_unknown_to_known_vtxs()
         self.add_new_info_nodes()
-        self.resolve()
+        vtxs_to_flag, vtxs_to_clear = self.resolve()
+        return vtxs_to_clear, vtxs_to_flag
         # IMPORTANT TODO: only create graphs from edges
         # repeat the steps until there is no more change in the graphs
         #  
+
+    def solve_step(self) -> Tuple[List[Tuple[int, int]], List[Tuple[int, int]]]:
+        """
+        This method will be called to solve one step of the game
+        """
+        vtxs_to_flag, vtxs_to_clear = self.update_graph()
+        iterations = 1
+        while not vtxs_to_clear and not vtxs_to_flag and iterations < self.iteration_threshold:
+            self.update_graph() 
+            iterations += 1
+        return vtxs_to_clear, vtxs_to_flag
