@@ -52,7 +52,6 @@ class GraphSolver:
         the difference is that this method will create a graph out of each clique while finding 
         the cliques and will return a list of Graph objects
         """
-        # TODO WORKING HERE:
         # This function is wrong because:
         # 1: it adds all the cells to the graph, not just the ones that are 
         # on the boundary,
@@ -61,24 +60,26 @@ class GraphSolver:
         graphs = []
         for x in range(grid.size_x):
             for y in range(grid.size_y):
-                if (x, y) not in visited and grid.grid[x, y] == grid.unknown_constant:
-                    graph = Graph()
-                    stack = [(x, y)]
-                    while stack:
-                        cell = stack.pop()
-                        if cell not in visited:
-                            visited.add(cell)
-                            if cell not in graph.location_hash:
-                                node = Node(id=graph.id_factory.get_new_id(), value=grid.grid[cell], location=cell)
-                                graph.add_vertex(node)
-                            for neighbour_location in grid.get_cell_neighbours(cell):
-                                if neighbour_location not in visited:
-                                    stack.append(neighbour_location)
-                                if neighbour_location not in graph.location_hash:
-                                    neighbour_node = Node(id=graph.id_factory.get_new_id(), value=grid.grid[neighbour_location], location=neighbour_location)
-                                    graph.add_vertex(neighbour_node)
-                                    graph.add_edge(node, neighbour_node)
-                    graphs.append(graph)
+                if grid.boundary_flags[x, y]:
+                    if (x, y) not in visited and grid.grid[x, y] == grid.unknown_constant:
+                        graph = Graph()
+                        stack = [(x, y)]
+                        while stack:
+                            cell = stack.pop()
+                            if cell not in visited:
+                                visited.add(cell)
+                                if cell not in graph.location_hash:
+                                    node = Node(id=graph.id_factory.get_new_id(), value=grid.grid[cell], location=cell)
+                                    graph.add_vertex(node)
+                                for neighbour_location in grid.get_cell_neighbours(cell):
+                                    if grid.boundary_flags[neighbour_location]:
+                                        if neighbour_location not in visited:
+                                            stack.append(neighbour_location)
+                                        if neighbour_location not in graph.location_hash:
+                                            neighbour_node = Node(id=graph.id_factory.get_new_id(), value=grid.grid[neighbour_location], location=neighbour_location)
+                                            graph.add_vertex(neighbour_node)
+                                            graph.add_edge(node, neighbour_node)
+                        graphs.append(graph)
         return graphs
                     
 

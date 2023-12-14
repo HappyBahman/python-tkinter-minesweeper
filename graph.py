@@ -62,13 +62,16 @@ class Node:
         self,
         id: int,
         value: int,
-        neighbours: List[Node] = [],
+        neighbours: List[Node] = None,
         degree: int = 0,
         location: Tuple[int, int] = (-1, -1),
     ) -> None:
         self.id = id
         self.value = value
-        self.neighbours = neighbours
+        if neighbours is None:
+            self.neighbours = []
+        else:
+            self.neighbours = neighbours
         self.degree = degree
         self.beliefs = BeliefSet()
         self.location: Tuple[int, int] = location
@@ -131,11 +134,11 @@ class Graph:
         self.iteration_threshold = 5
 
     def add_vertex(self, vertex: Node) -> None:
-        self.vertexes.append(vertex)
         if vertex.location != (-1, -1):
             if vertex.location in self.location_hash:
                 raise VertexAlreadyExists
             else:
+                self.vertexes.append(vertex)
                 self.location_hash[vertex.location] = vertex
 
     def add_edge(self, vertex_1: Node, vertex_2: Node) -> None:

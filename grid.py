@@ -17,11 +17,37 @@ class MSGrid:
             self.grid = grid
             self.size_x = grid.shape[0]
             self.size_y = grid.shape[1]
-
+            self.boundary_flags = np.zeros((self.size_x, self.size_y))
+            self.mark_boundary_flags()
         else:
             self.size_x = size_x
             self.size_y = size_y
             self.grid = np.zeros((size_x, size_y)) + self.unknown_constant
+            self.boundary_flags = np.zeros((self.size_x, self.size_y))
+
+    def mark_boundary_flags(self) -> None:
+        """
+        boundary cells are same as non_trivial cells, basically either an unkonwn cell that has at least one known
+        neighbour or a known cell that has at least one unknown neighbour. 
+        These are the only important cells in solving the problem. 
+        This method will iterate the grid, and whereever there is a non_trivial cell, mark that location in the 
+        self.boundary_flags map to True
+        """
+        # for each cell we will check the four cells to the right, left bottom, bottom and right bottom
+        # the other foru will have been checked when we were at the left, top right, etc.. cells.
+        neighbour_offsets = [
+            (1, 0), (-1, 1), (0, 1), (1, 1)
+        ]
+        for i in range(self.size_x):
+            for j in range(self.size_y):
+                for neighbour_offset in neighbour_offsets:
+                    neighbour_index = (i + neighbour_offset[0], j + neighbour_offset[1])
+                    if -1 < neighbour_index[0] < self.size_x and -1 < neighbour_index[1] < self.size_y:
+                        if (self.grid[i, j] == self.unknown_constant) != (self.grid[neighbour_index] == self.unknown_constant):
+                            self.boundary_flags[i, j] = 1
+                            self.boundary_flags[neighbour_index] = 1 
+
+
 
     def get_known_cells(self):
         known_cells = []
@@ -70,7 +96,7 @@ class MSGrid:
             if neighbouring_offset != (0, 0):
                 neighbour = (cell_location[0] + neighbouring_offset[0], cell_location[1] + neighbouring_offset[1])
                 list_of_neighbours.append(neighbour)
-        return neighbouring_offset
+        return list_of_neighbours
 
 
     def get_unknown_cells(self) -> List[Tuple[int, int]]:
