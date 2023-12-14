@@ -95,7 +95,8 @@ class MSGrid:
         for neighbouring_offset in neighbouring_offsets:
             if neighbouring_offset != (0, 0):
                 neighbour = (cell_location[0] + neighbouring_offset[0], cell_location[1] + neighbouring_offset[1])
-                list_of_neighbours.append(neighbour)
+                if -1 < neighbour[0] < self.size_x and -1 < neighbour[1] < self.size_y: 
+                    list_of_neighbours.append(neighbour)
         return list_of_neighbours
 
 

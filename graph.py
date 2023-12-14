@@ -17,6 +17,7 @@ class IDFactory:
         self.digits = digits
 
     def get_new_id(self):
+        self.counter += 1
         return "{:0>{}}".format(self.counter, self.digits)
 
 
@@ -149,7 +150,7 @@ class Graph:
         known_set = []
         for vtx in self.vertexes:
             if not vtx.value == Value.Unknown:
-                known_set.append[vtx]
+                known_set.append(vtx)
         return known_set
 
     def get_unknown_vtxs(self) -> List[Node]:
@@ -280,6 +281,7 @@ class Graph:
         """
         vtxs_to_flag, vtxs_to_clear = self.update_graph()
         iterations = 1
+        print('--')
         while not vtxs_to_clear and not vtxs_to_flag and iterations < self.iteration_threshold:
             self.update_graph() 
             iterations += 1
